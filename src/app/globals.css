@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BRAND PRIMITIVE VARIABLES
+   Raw hex values. Change only here — every Tailwind utility picks up the update.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --brand-primary:         #00bdcd;
+  --brand-primary-dark:    #009aaa;
+  --brand-primary-light:   #33cad7;
+  --brand-primary-subtle:  #e6f9fb;
+
+  --brand-secondary:       #edb960;
+  --brand-secondary-dark:  #c9963a;
+  --brand-secondary-light: #f4cf8e;
+  --brand-secondary-subtle:#fdf6e8;
+
+  /* Semantic surfaces (light theme baseline) */
+  --surface:               #ffffff;
+  --surface-subtle:        #f8fafc;
+  --surface-muted:         #f1f5f9;
+  --surface-inverse:       #0f172a;
+
+  /* Borders */
+  --border:                #e2e8f0;
+  --border-strong:         #cbd5e1;
+
+  /* Foreground / text */
+  --fg:                    #0f172a;
+  --fg-muted:              #475569;
+  --fg-subtle:             #94a3b8;
+  --fg-inverse:            #ffffff;
+
+  /* Feedback states */
+  --color-success:         #16a34a;
+  --color-warning:         #d97706;
+  --color-error:           #dc2626;
+  --color-info:            #0284c7;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md:  0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg:  0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TAILWIND v4 THEME REGISTRATION
+   Maps brand variables → Tailwind color utilities.
+   e.g. bg-primary, text-secondary, border-border, etc.
+   ───────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Brand tokens */
+  --color-primary:          var(--brand-primary);
+  --color-primary-dark:     var(--brand-primary-dark);
+  --color-primary-light:    var(--brand-primary-light);
+  --color-primary-subtle:   var(--brand-primary-subtle);
+
+  --color-secondary:        var(--brand-secondary);
+  --color-secondary-dark:   var(--brand-secondary-dark);
+  --color-secondary-light:  var(--brand-secondary-light);
+  --color-secondary-subtle: var(--brand-secondary-subtle);
+
+  /* Semantic surface tokens */
+  --color-surface:          var(--surface);
+  --color-surface-subtle:   var(--surface-subtle);
+  --color-surface-muted:    var(--surface-muted);
+  --color-surface-inverse:  var(--surface-inverse);
+
+  /* Border tokens */
+  --color-border:           var(--border);
+  --color-border-strong:    var(--border-strong);
+
+  /* Foreground tokens */
+  --color-foreground:       var(--fg);
+  --color-foreground-muted: var(--fg-muted);
+  --color-foreground-subtle:var(--fg-subtle);
+  --color-foreground-inverse:var(--fg-inverse);
+
+  /* Feedback tokens */
+  --color-success:          var(--color-success);
+  --color-warning:          var(--color-warning);
+  --color-error:            var(--color-error);
+  --color-info:             var(--color-info);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE LAYER — document defaults
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--fg);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Heading defaults — use utility classes (.text-heading-*) for overrides */
+  h1 { @apply text-4xl font-bold   tracking-tight leading-tight; }
+  h2 { @apply text-3xl font-bold   tracking-tight leading-snug;  }
+  h3 { @apply text-2xl font-semibold              leading-snug;  }
+  h4 { @apply text-xl  font-semibold              leading-snug;  }
+  h5 { @apply text-lg  font-medium                leading-normal;}
+  h6 { @apply text-base font-medium               leading-normal;}
+
+  a {
+    color: var(--brand-primary);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TYPOGRAPHY UTILITY CLASSES
+   Apply as className="text-display", "text-price", etc.
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Display / Hero */
+  .text-display {
+    @apply text-5xl font-extrabold tracking-tighter leading-none;
+  }
+
+  /* Page headings */
+  .text-heading-1 {
+    @apply text-4xl font-bold tracking-tight leading-tight;
+  }
+  .text-heading-2 {
+    @apply text-3xl font-bold tracking-tight leading-snug;
+  }
+  .text-heading-3 {
+    @apply text-2xl font-semibold leading-snug;
+  }
+  .text-heading-4 {
+    @apply text-xl font-semibold leading-snug;
+  }
+
+  /* Body copy */
+  .text-body-lg {
+    @apply text-lg font-normal leading-relaxed;
+  }
+  .text-body {
+    @apply text-base font-normal leading-relaxed;
+  }
+  .text-body-sm {
+    @apply text-sm font-normal leading-relaxed;
+  }
+
+  /* Supporting */
+  .text-caption {
+    @apply text-xs font-medium tracking-widest uppercase;
+  }
+  .text-label {
+    @apply text-sm font-semibold tracking-wide;
+  }
+  .text-overline {
+    @apply text-xs font-bold tracking-widest uppercase;
+  }
+
+  /* Price display — tabular nums for aligned price lists */
+  .text-price {
+    @apply text-2xl font-bold tabular-nums leading-none;
+  }
+  .text-price-lg {
+    @apply text-4xl font-extrabold tabular-nums leading-none;
+  }
+  .text-price-sm {
+    @apply text-lg font-semibold tabular-nums leading-none;
+  }
+
+  /* Muted / secondary text shorthands */
+  .text-muted {
+    color: var(--fg-muted);
+  }
+  .text-subtle {
+    color: var(--fg-subtle);
+  }
+}
