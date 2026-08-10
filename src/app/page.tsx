@@ -1,69 +1,130 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import {
+  Search,
+  Shield,
+  ChevronDown,
+  Smartphone,
+  Laptop,
+  Tv,
+  Headphones,
+  Camera,
+} from "lucide-react";
+
+/* ── Static data — defined once, referenced below ──────────────────────────── */
+
+const CATEGORIES = [
+  { icon: Smartphone, label: "Mobiles"  },
+  { icon: Laptop,     label: "Laptops"  },
+  { icon: Tv,         label: "TVs"      },
+  { icon: Headphones, label: "Audio"    },
+  { icon: Camera,     label: "Cameras"  },
+] as const;
+
+/* ── Page ───────────────────────────────────────────────────────────────────── */
 
 export default function Home() {
+  const [query, setQuery] = useState("");
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    /* ── Hero ── fills remaining viewport height between Navbar & Footer */
+    <section className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-4 py-20 sm:py-28">
+
+      {/* ── Decorative ambient blobs ─────────────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-white opacity-[0.04]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-white opacity-[0.04]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute left-1/4 top-1/3 h-40 w-40 rounded-full bg-indigo-400 opacity-10 blur-2xl"
+        aria-hidden="true"
+      />
+
+      {/* ── Content ─────────────────────────────────────────────────────── */}
+      <div className="relative z-10 mx-auto w-full max-w-3xl text-center">
+
+        {/* ── Trust badge (glassmorphism pill) ──────────────────────────── */}
+        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+          <Shield
+            className="h-3.5 w-3.5 text-secondary"
+            aria-hidden="true"
+          />
+          <span className="text-xs font-semibold text-white">
+            Trusted by Indian Shoppers
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* ── Headline ──────────────────────────────────────────────────── */}
+        <h1 className="mb-5 text-4xl font-extrabold tracking-tighter leading-tight text-white sm:text-5xl lg:text-6xl">
+          Shop Smarter.{" "}
+          <span className="text-secondary">Pay Less.</span>
+        </h1>
+
+        {/* ── Sub-headline ──────────────────────────────────────────────── */}
+        <p className="mx-auto mb-10 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
+          Compare prices across Amazon, Flipkart, Croma &amp; more —
+          find the best deal in seconds, every time.
+        </p>
+
+        {/* ── Search bar ────────────────────────────────────────────────── */}
+        <div className="mb-7 flex items-stretch overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+          {/* Category selector — desktop only */}
+          <div
+            className="hidden sm:flex flex-shrink-0 cursor-default select-none items-center gap-1.5 border-r border-border bg-surface-subtle px-4 text-sm font-medium text-foreground-muted"
+            aria-label="Category filter (coming soon)"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+            All Categories
+            <ChevronDown
+              className="h-3.5 w-3.5 text-foreground-subtle"
+              aria-hidden="true"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          {/* Text input */}
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search for iPhone 15, Samsung TV, Nike shoes…"
+            className="min-w-0 flex-1 bg-transparent px-5 py-4 text-sm text-foreground placeholder:text-foreground-subtle outline-none"
+            aria-label="Search products"
+          />
+
+          {/* Search button — amber / secondary for contrast on blue hero */}
+          <button
+            type="button"
+            aria-label="Search"
+            className="flex flex-shrink-0 items-center gap-2 bg-orange-500 px-5 py-4 text-sm font-bold text-white transition-colors hover:bg-orange-600 sm:px-7"
           >
-            Documentation
-          </a>
+            <Search className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Search</span>
+          </button>
         </div>
-      </main>
-    </div>
+
+        {/* ── Quick Browse category pills (glassmorphism) ───────────────── */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="mb-1 w-full text-xs text-white/45">
+            Quick Browse:
+          </span>
+          {CATEGORIES.map(({ icon: Icon, label }) => (
+            <button
+              key={label}
+              type="button"
+              className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+      </div>
+    </section>
   );
 }
