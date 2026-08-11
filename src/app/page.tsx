@@ -15,7 +15,6 @@ import {
   PackageSearch,
 } from "lucide-react";
 import type { Product } from "@/types/product";
-import { searchProducts } from "@/services/mockProductAdapter";
 import { ProductGrid } from "@/components/features/ProductGrid";
 
 /* ── Static data ────────────────────────────────────────────────────────────── */
@@ -50,8 +49,13 @@ export default function Home() {
     if (!q || loading) return;
     setLoading(true);
     setSearched(true);
-    const data = await searchProducts(q);
-    setResults(data);
+    try {
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const json = await res.json() as { products: Product[] };
+      setResults(json.products);
+    } catch {
+      setResults([]);
+    }
     setLoading(false);
   }
 

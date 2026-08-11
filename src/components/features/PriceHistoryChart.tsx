@@ -254,7 +254,7 @@ export function PriceHistoryChart({ history, currentLowestPrice }: Props) {
             d={linePath}
             fill="none"
             style={{ stroke: "var(--brand-primary)" }}
-            strokeWidth="2.5"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -269,7 +269,7 @@ export function PriceHistoryChart({ history, currentLowestPrice }: Props) {
                 {/* Halo ring on notable points */}
                 {(isLow || isHigh) && (
                   <circle
-                    cx={p.x} cy={p.y} r={7}
+                    cx={p.x} cy={p.y} r={5}
                     style={{
                       fill: isLow ? "var(--color-success)" : "var(--color-error)",
                       fillOpacity: 0.18,
@@ -279,8 +279,8 @@ export function PriceHistoryChart({ history, currentLowestPrice }: Props) {
 
                 {/* Dot */}
                 <circle
-                  cx={p.x} cy={p.y} r={4}
-                  stroke="white" strokeWidth="1.5"
+                  cx={p.x} cy={p.y} r={2.5}
+                  stroke="white" strokeWidth="1"
                   style={{
                     fill: isLow
                       ? "var(--color-success)"
