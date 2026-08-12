@@ -1,5 +1,7 @@
 import type { MerchantOffer, PriceHistoryPoint } from "./product";
 
+export type { MerchantOffer, PriceHistoryPoint };
+
 /**
  * Extends MerchantOffer with the product-context fields each adapter must
  * supply so the aggregation layer can group offers by product without a
@@ -12,6 +14,7 @@ export interface AdapterOffer extends MerchantOffer {
   productImageUrl: string;
   productSku: string;
   priceHistory?: PriceHistoryPoint[];
+  pageToken?: string;
 }
 
 /** Contract every store adapter must satisfy. */

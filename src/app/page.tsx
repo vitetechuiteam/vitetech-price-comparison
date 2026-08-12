@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search,
   Shield,
-  ChevronDown,
   Smartphone,
   Laptop,
   Tv,
@@ -27,30 +27,34 @@ const CATEGORIES = [
   { icon: Camera,     label: "Cameras"  },
 ] as const;
 
-type SortKey = "price-asc" | "price-desc" | "name-asc";
+type SortKey = "price-asc" | "price-desc";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "price-asc",  label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
-  { value: "name-asc",   label: "Name: A – Z"        },
 ];
 
-/* ── Page ───────────────────────────────────────────────────────────────────── */
+/* ── Search page content (needs Suspense for useSearchParams) ───────────────── */
 
-export default function Home() {
-  const [query,   setQuery]   = useState("");
-  const [results, setResults] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+function SearchContent() {
+  const searchParams = useSearchParams();
+  const router       = useRouter();
+
+  const [query,    setQuery]    = useState(searchParams.get("q") ?? "");
+  const [results,  setResults]  = useState<Product[]>([]);
+  const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(false);
-  const [sortBy,  setSortBy]  = useState<SortKey>("price-asc");
+  const [sortBy,   setSortBy]   = useState<SortKey>("price-asc");
 
-  async function handleSearch(overrideQuery?: string) {
-    const q = (overrideQuery ?? query).trim();
-    if (!q || loading) return;
+  // Prevent double-running the initial search on mount
+  const didInitialSearch = useRef(false);
+
+  async function doSearch(q: string) {
+    if (!q.trim() || loading) return;
     setLoading(true);
     setSearched(true);
     try {
-      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
       const json = await res.json() as { products: Product[] };
       setResults(json.products);
     } catch {
@@ -59,12 +63,31 @@ export default function Home() {
     setLoading(false);
   }
 
+  async function handleSearch(overrideQuery?: string) {
+    const q = (overrideQuery ?? query).trim();
+    if (!q) return;
+    setQuery(q);
+    // Push ?q= to URL so browser back/forward restores search results
+    router.push(`/?q=${encodeURIComponent(q)}`, { scroll: false });
+    await doSearch(q);
+  }
+
+  // On mount: if URL already has ?q= (e.g. browser back from product page),
+  // auto-run the search to restore the previous results.
+  useEffect(() => {
+    const urlQuery = searchParams.get("q");
+    if (urlQuery && !didInitialSearch.current) {
+      didInitialSearch.current = true;
+      doSearch(urlQuery);
+      setSearched(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const sortedResults = useMemo((): Product[] => {
     const copy = [...results];
     switch (sortBy) {
       case "price-asc":  return copy.sort((a, b) => a.lowestPrice - b.lowestPrice);
       case "price-desc": return copy.sort((a, b) => b.lowestPrice - a.lowestPrice);
-      case "name-asc":   return copy.sort((a, b) => a.title.localeCompare(b.title));
       default:           return copy;
     }
   }, [results, sortBy]);
@@ -79,7 +102,6 @@ export default function Home() {
           searched ? "" : "flex-1",
         ].join(" ")}
       >
-
         {/* ── Decorative ambient blobs ─────────────────────────────────────── */}
         <div
           className="pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-white opacity-[0.04]"
@@ -97,7 +119,7 @@ export default function Home() {
         {/* ── Content ─────────────────────────────────────────────────────── */}
         <div className="relative z-10 mx-auto w-full max-w-3xl text-center">
 
-          {/* ── Trust badge (glassmorphism pill) ──────────────────────────── */}
+          {/* ── Trust badge ──────────────────────────────────────────────── */}
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
             <Shield className="h-3.5 w-3.5 text-secondary" aria-hidden="true" />
             <span className="text-xs font-semibold text-white">
@@ -119,14 +141,9 @@ export default function Home() {
 
           {/* ── Search bar ────────────────────────────────────────────────── */}
           <div className="mb-7 flex items-stretch overflow-hidden rounded-2xl bg-white shadow-2xl">
-
-            {/* Category selector — desktop only */}
-            <div
-              className="hidden sm:flex flex-shrink-0 cursor-default select-none items-center gap-1.5 border-r border-border bg-surface-subtle px-4 text-sm font-medium text-foreground-muted"
-              aria-label="Category filter (coming soon)"
-            >
-              All Categories
-              <ChevronDown className="h-3.5 w-3.5 text-foreground-subtle" aria-hidden="true" />
+            {/* Search icon — left side */}
+            <div className="flex flex-shrink-0 items-center pl-4 pr-2 text-foreground-subtle" aria-hidden="true">
+              <Search className="h-4 w-4" />
             </div>
 
             {/* Text input */}
@@ -136,7 +153,7 @@ export default function Home() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               placeholder="Search for iPhone 15, Samsung TV, Nike shoes…"
-              className="min-w-0 flex-1 bg-transparent px-5 py-4 text-sm text-foreground placeholder:text-foreground-subtle outline-none"
+              className="min-w-0 flex-1 bg-transparent px-3 py-4 text-sm text-foreground placeholder:text-foreground-subtle outline-none"
               aria-label="Search products"
             />
 
@@ -145,7 +162,7 @@ export default function Home() {
               type="button"
               onClick={() => handleSearch()}
               aria-label="Search"
-              className="flex flex-shrink-0 items-center gap-2 bg-orange-500 px-5 py-4 text-sm font-bold text-white transition-colors hover:bg-orange-600 sm:px-7"
+              className="flex flex-shrink-0 cursor-pointer items-center gap-2 bg-orange-500 px-5 py-4 text-sm font-bold text-white transition-colors hover:bg-orange-600 sm:px-7"
             >
               {loading
                 ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -155,7 +172,7 @@ export default function Home() {
             </button>
           </div>
 
-          {/* ── Quick Browse category pills (glassmorphism) ───────────────── */}
+          {/* ── Quick Browse category pills ───────────────────────────────── */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="mb-1 w-full text-xs text-white/45">
               Quick Browse:
@@ -165,7 +182,7 @@ export default function Home() {
                 key={label}
                 type="button"
                 onClick={() => { setQuery(label); handleSearch(label); }}
-                className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {label}
@@ -183,14 +200,12 @@ export default function Home() {
           aria-label="Search results"
         >
           {loading ? (
-            /* Loading spinner */
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-foreground-muted">
               <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
               <p className="text-sm font-medium">Fetching best prices…</p>
             </div>
 
           ) : results.length === 0 ? (
-            /* Empty state */
             <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
               <PackageSearch className="h-12 w-12 text-foreground-subtle" aria-hidden="true" />
               <p className="text-lg font-semibold text-foreground">No products found</p>
@@ -202,12 +217,7 @@ export default function Home() {
           ) : (
             <>
               {/* Sort toolbar */}
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-foreground-muted">
-                  <span className="font-semibold text-foreground">{results.length}</span>
-                  {" "}{results.length === 1 ? "result" : "results"} found
-                </p>
-
+              <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
                 <label className="flex items-center gap-2 text-sm text-foreground-muted">
                   <SlidersHorizontal className="h-4 w-4 text-foreground-subtle" aria-hidden="true" />
                   Sort by:
@@ -230,5 +240,15 @@ export default function Home() {
         </section>
       )}
     </>
+  );
+}
+
+/* ── Page export — wraps SearchContent in Suspense (required for useSearchParams) */
+
+export default function Home() {
+  return (
+    <Suspense>
+      <SearchContent />
+    </Suspense>
   );
 }

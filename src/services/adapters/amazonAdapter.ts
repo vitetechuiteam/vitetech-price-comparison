@@ -1,68 +1,89 @@
 import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
-import { MOCK_CATALOG, matchesCatalog } from "./mockCatalog";
 
-const DELAY_MS = 300;
+const SERPAPI_BASE = "https://serpapi.com/search";
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/* ── SerpApi response shape (google_shopping engine) ────────────────────────── */
+
+interface SerpApiShoppingResult {
+  title?: string;
+  link?: string;
+  source?: string;
+  extracted_price?: number;
+  extracted_original_price?: number;
+  thumbnail?: string;
+  product_id?: string;
 }
 
-/* Amazon-specific price / stock data keyed by product id */
-const AMAZON_LISTINGS: Record<
-  string,
-  Pick<AdapterOffer, "price" | "originalPrice" | "inStock" | "productUrl">
-> = {
-  "prod-001": {
-    price: 74999,
-    originalPrice: 79900,
-    inStock: true,
-    productUrl: "https://www.amazon.in/dp/B0CHX2FTVL",
-  },
-  "prod-002": {
-    price: 66999,
-    originalPrice: 74999,
-    inStock: true,
-    productUrl: "https://www.amazon.in/dp/samsung-s24",
-  },
-  "prod-003": {
-    price: 22990,
-    originalPrice: 29990,
-    inStock: true,
-    productUrl: "https://www.amazon.in/dp/sony-wh1000xm5",
-  },
-  "prod-004": {
-    price: 129990,
-    originalPrice: 159990,
-    inStock: true,
-    productUrl: "https://www.amazon.in/dp/lg-c3-oled",
-  },
-  "prod-005": {
-    price: 164990,
-    originalPrice: 189990,
-    inStock: true,
-    productUrl: "https://www.amazon.in/dp/dell-xps15",
-  },
-};
+interface SerpApiResponse {
+  shopping_results?: SerpApiShoppingResult[];
+  error?: string;
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
+
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function toAdapterOffer(r: SerpApiShoppingResult, query: string): AdapterOffer | null {
+  if (
+    typeof r.extracted_price !== "number" ||
+    !r.source ||
+    !r.link ||
+    !r.title
+  ) return null;
+
+  const productId = r.product_id ?? slugify(r.title);
+
+  return {
+    merchantName:    r.source,
+    price:           r.extracted_price,
+    originalPrice:   typeof r.extracted_original_price === "number"
+                       ? r.extracted_original_price
+                       : undefined,
+    inStock:         true,
+    productUrl:      r.link,
+    productId,
+    productTitle:    r.title,
+    productCategory: query,
+    productImageUrl: r.thumbnail ?? "",
+    productSku:      r.product_id ?? productId,
+  };
+}
+
+/* ── Adapter ────────────────────────────────────────────────────────────────── */
 
 export const amazonAdapter: MerchantAdapter = {
   async fetchOffers(query: string): Promise<AdapterOffer[]> {
-    await delay(DELAY_MS);
+    const apiKey = process.env.SERPAPI_API_KEY;
+    if (!apiKey) {
+      console.warn("[serpApiAdapter] SERPAPI_API_KEY is not set — skipping live fetch");
+      return [];
+    }
 
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+    const url = new URL(SERPAPI_BASE);
+    url.searchParams.set("engine", "google_shopping");
+    url.searchParams.set("q", query);
+    url.searchParams.set("gl", "in");
+    url.searchParams.set("hl", "en");
+    url.searchParams.set("api_key", apiKey);
 
-    return MOCK_CATALOG
-      .filter((entry) => matchesCatalog(entry, q) && entry.id in AMAZON_LISTINGS)
-      .map((entry) => ({
-        ...AMAZON_LISTINGS[entry.id],
-        merchantName: "Amazon",
-        logoUrl: "/logos/amazon.svg",
-        productId: entry.id,
-        productTitle: entry.title,
-        productCategory: entry.category,
-        productImageUrl: entry.imageUrl,
-        productSku: entry.sku,
-        priceHistory: entry.priceHistory,
-      }));
+    const res = await fetch(url.toString(), {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) {
+      throw new Error(`SerpApi request failed: ${res.status} ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as SerpApiResponse;
+
+    if (data.error) {
+      throw new Error(`SerpApi error: ${data.error}`);
+    }
+
+    return (data.shopping_results ?? [])
+      .map((r) => toAdapterOffer(r, query))
+      .filter((o): o is AdapterOffer => o !== null);
   },
 };

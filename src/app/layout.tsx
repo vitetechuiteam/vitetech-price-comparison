@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   description:
     "Compare prices across top Indian e-commerce platforms instantly. Find the best deals on electronics, appliances, fashion, and more.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/fav-icon.svg",
   },
 };
 

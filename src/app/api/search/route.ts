@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aggregateProductData } from "@/services/productService";
 
+export const maxDuration = 60;
+
 /**
  * GET /api/search?q=<query>
  *

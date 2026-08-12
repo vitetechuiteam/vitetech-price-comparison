@@ -1,6 +1,7 @@
 import { Tag, ExternalLink, PackageCheck, PackageX } from "lucide-react";
 import type { Product } from "@/types/product";
 import { formatINR } from "@/lib/format";
+import { getStoreIconUrl } from "@/lib/storeIcon";
 
 function discountPct(price: number, original: number): number {
   return Math.round(((original - price) / original) * 100);
@@ -67,6 +68,15 @@ export function PriceComparisonTable({ product }: { product: Product }) {
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-bold text-foreground-muted">
                         {idx + 1}
                       </span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getStoreIconUrl(offer.merchantName, offer.productUrl)}
+                        alt=""
+                        width={18}
+                        height={18}
+                        className="h-[18px] w-[18px] shrink-0 rounded-sm object-contain"
+                        aria-hidden="true"
+                      />
                       <span className="font-medium text-foreground">
                         {offer.merchantName}
                       </span>
@@ -135,7 +145,7 @@ export function PriceComparisonTable({ product }: { product: Product }) {
                         rel="nofollow sponsored noopener noreferrer"
                         aria-label={`Buy ${product.title} from ${offer.merchantName}`}
                         className={[
-                          "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors",
+                          "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors",
                           isBest
                             ? "bg-success text-white hover:bg-success/90"
                             : "border border-border bg-surface text-foreground hover:bg-surface-muted",

@@ -1,18 +1,14 @@
 import type { Product, MerchantOffer } from "@/types/product";
 import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
-import { amazonAdapter }  from "./adapters/amazonAdapter";
-import { flipkartAdapter } from "./adapters/flipkartAdapter";
-import { cromaAdapter }   from "./adapters/cromaAdapter";
+import { serpApiAdapter } from "./adapters/serpApiAdapter";
+import { setCachedProducts, cachePageToken } from "./productCache";
 
 /* ── Registered adapters ────────────────────────────────────────────────────── */
 
-const ADAPTERS: MerchantAdapter[] = [
-  amazonAdapter,
-  flipkartAdapter,
-  cromaAdapter,
-];
+const ADAPTERS: MerchantAdapter[] = [serpApiAdapter];
 
-const ADAPTER_TIMEOUT_MS = 3000;
+// SerpAPI for India can take 5–10 s; give it a generous budget
+const ADAPTER_TIMEOUT_MS = 20000;
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -25,7 +21,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-/* Strip the adapter-only context fields to produce a plain MerchantOffer. */
 function toMerchantOffer(a: AdapterOffer): MerchantOffer {
   const offer: MerchantOffer = {
     merchantName: a.merchantName,
@@ -40,23 +35,14 @@ function toMerchantOffer(a: AdapterOffer): MerchantOffer {
 
 /* ── Public API ─────────────────────────────────────────────────────────────── */
 
-/**
- * Calls every registered adapter in parallel with a per-adapter timeout.
- * Individual adapter failures are swallowed — the search still returns
- * results from the adapters that succeeded.
- * Offers are grouped by productId, sorted by price, then hydrated into
- * fully-typed Product objects with derived lowestPrice / highestPrice.
- */
 export async function aggregateProductData(query: string): Promise<Product[]> {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return [];
 
-  /* Fan out — all adapters run concurrently */
   const settled = await Promise.allSettled(
     ADAPTERS.map((adapter) => withTimeout(adapter.fetchOffers(q), ADAPTER_TIMEOUT_MS))
   );
 
-  /* Collect offers from fulfilled adapters only */
   const allOffers: AdapterOffer[] = settled
     .filter(
       (r): r is PromiseFulfilledResult<AdapterOffer[]> => r.status === "fulfilled"
@@ -73,20 +59,35 @@ export async function aggregateProductData(query: string): Promise<Product[]> {
     byProduct.set(offer.productId, group);
   }
 
-  /* Build hydrated Product objects */
   const products: Product[] = [];
+
   for (const [, offers] of byProduct) {
-    const meta   = offers[0];
-    const sorted = offers
+    /* Deduplicate: keep only the lowest-price listing per merchant */
+    const byMerchant = new Map<string, AdapterOffer>();
+    for (const offer of offers) {
+      const key = offer.merchantName.toLowerCase();
+      const existing = byMerchant.get(key);
+      if (!existing || offer.price < existing.price) {
+        byMerchant.set(key, offer);
+      }
+    }
+
+    const deduped = Array.from(byMerchant.values());
+    const meta    = deduped[0];
+    const sorted  = deduped
       .map(toMerchantOffer)
       .sort((a, b) => a.price - b.price);
 
+    // Cache the immersive page token so the detail page can fetch all sellers
+    const pageToken = deduped.find((o) => o.pageToken)?.pageToken;
+    if (pageToken) cachePageToken(meta.productId, pageToken);
+
     products.push({
-      id:          meta.productId,
-      title:       meta.productTitle,
-      category:    meta.productCategory,
-      imageUrl:    meta.productImageUrl,
-      sku:         meta.productSku,
+      id:           meta.productId,
+      title:        meta.productTitle,
+      category:     meta.productCategory,
+      imageUrl:     meta.productImageUrl,
+      sku:          meta.productSku,
       priceHistory: meta.priceHistory,
       offers:       sorted,
       lowestPrice:  sorted[0].price,
@@ -94,6 +95,10 @@ export async function aggregateProductData(query: string): Promise<Product[]> {
     });
   }
 
-  /* Return sorted by lowestPrice ascending (default view order) */
-  return products.sort((a, b) => a.lowestPrice - b.lowestPrice);
+  const sorted = products.sort((a, b) => a.lowestPrice - b.lowestPrice);
+
+  // Cache for product detail page lookups
+  setCachedProducts(sorted);
+
+  return sorted;
 }
