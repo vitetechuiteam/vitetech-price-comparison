@@ -6,6 +6,7 @@ import { getCachedProduct, getCachedPageToken } from "@/services/productCache";
 import { getProductByPageToken, getProductByIdFromSerpApi } from "@/services/serpApiProductService";
 import { PriceComparisonTable } from "@/components/features/PriceComparisonTable";
 import { PriceHistoryChart } from "@/components/features/PriceHistoryChart";
+import { ProductImageGallery } from "@/components/features/ProductImageGallery";
 import { formatINR } from "@/lib/format";
 
 export const maxDuration = 60;
@@ -62,7 +63,7 @@ export default async function ProductDetailPage({
         </p>
         <Link
           href="/"
-          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+          className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
         >
           Back to Home
         </Link>
@@ -88,12 +89,10 @@ export default async function ProductDetailPage({
       <div className="mb-8 flex flex-col gap-8 lg:flex-row">
 
         {/* Image panel */}
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface-subtle p-8 lg:w-2/5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
+        <div className="rounded-2xl border border-border bg-surface-subtle p-4 lg:w-2/5">
+          <ProductImageGallery
+            images={product.images && product.images.length > 0 ? product.images : [imageUrl]}
             alt={title}
-            className="max-h-72 w-full object-contain"
           />
         </div>
 
@@ -102,10 +101,9 @@ export default async function ProductDetailPage({
 
           <div>
             <span className="text-caption text-foreground-subtle">{category}</span>
-            <h1 className="mt-1 text-2xl font-bold leading-snug text-foreground sm:text-3xl">
+            <h1 className="mt-1 text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
               {title}
             </h1>
-            <p className="mt-1 text-xs text-foreground-subtle">SKU: {product.sku}</p>
           </div>
 
           {/* Price range */}
@@ -133,7 +131,7 @@ export default async function ProductDetailPage({
               href={bestOffer.productUrl}
               target="_blank"
               rel="nofollow sponsored noopener noreferrer"
-              className="inline-flex w-fit items-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-success/90"
+              className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-success/90"
             >
               Buy at Best Price — {formatINR(product.lowestPrice)}
             </a>

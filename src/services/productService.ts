@@ -2,6 +2,7 @@ import type { Product, MerchantOffer } from "@/types/product";
 import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
 import { serpApiAdapter } from "./adapters/serpApiAdapter";
 import { setCachedProducts, cachePageToken } from "./productCache";
+import { getProductByPageToken } from "./serpApiProductService";
 
 /* ── Registered adapters ────────────────────────────────────────────────────── */
 
@@ -29,18 +30,18 @@ function toMerchantOffer(a: AdapterOffer): MerchantOffer {
     productUrl:   a.productUrl,
   };
   if (a.originalPrice !== undefined) offer.originalPrice = a.originalPrice;
-  if (a.logoUrl        !== undefined) offer.logoUrl       = a.logoUrl;
+  if (a.logoUrl       !== undefined) offer.logoUrl       = a.logoUrl;
   return offer;
 }
 
 /* ── Public API ─────────────────────────────────────────────────────────────── */
 
-export async function aggregateProductData(query: string): Promise<Product[]> {
+export async function aggregateProductData(query: string, start = 0): Promise<Product[]> {
   const q = query.trim();
   if (!q) return [];
 
   const settled = await Promise.allSettled(
-    ADAPTERS.map((adapter) => withTimeout(adapter.fetchOffers(q), ADAPTER_TIMEOUT_MS))
+    ADAPTERS.map((adapter) => withTimeout(adapter.fetchOffers(q, start), ADAPTER_TIMEOUT_MS))
   );
 
   const allOffers: AdapterOffer[] = settled
@@ -60,6 +61,7 @@ export async function aggregateProductData(query: string): Promise<Product[]> {
   }
 
   const products: Product[] = [];
+  const pageTokenMap = new Map<string, string>(); // productId → immersive page token
 
   for (const [, offers] of byProduct) {
     /* Deduplicate: keep only the lowest-price listing per merchant */
@@ -80,7 +82,10 @@ export async function aggregateProductData(query: string): Promise<Product[]> {
 
     // Cache the immersive page token so the detail page can fetch all sellers
     const pageToken = deduped.find((o) => o.pageToken)?.pageToken;
-    if (pageToken) cachePageToken(meta.productId, pageToken);
+    if (pageToken) {
+      cachePageToken(meta.productId, pageToken);
+      pageTokenMap.set(meta.productId, pageToken);
+    }
 
     products.push({
       id:           meta.productId,
@@ -92,13 +97,30 @@ export async function aggregateProductData(query: string): Promise<Product[]> {
       offers:       sorted,
       lowestPrice:  sorted[0].price,
       highestPrice: sorted[sorted.length - 1].price,
+      rating:       meta.productRating,
+      reviews:      meta.productReviews,
     });
   }
 
-  const sorted = products.sort((a, b) => a.lowestPrice - b.lowestPrice);
+  // Enrich all products with direct store URLs via the immersive product endpoint.
+  // Runs in parallel — falls back to original Google Shopping URLs on failure.
+  await Promise.allSettled(
+    products.map(async (product) => {
+      const token = pageTokenMap.get(product.id);
+      if (!token) return;
+      const enriched = await getProductByPageToken(token, product.id, product.title, product.imageUrl);
+      if (enriched && enriched.offers.length > 0) {
+        product.offers       = enriched.offers;
+        product.lowestPrice  = enriched.lowestPrice;
+        product.highestPrice = enriched.highestPrice;
+        if (enriched.images)   product.images   = enriched.images;
+        if (enriched.imageUrl) product.imageUrl = enriched.imageUrl;
+      }
+    })
+  );
 
-  // Cache for product detail page lookups
-  setCachedProducts(sorted);
+  // Cache for product detail page lookups (preserve API relevance order)
+  setCachedProducts(products);
 
-  return sorted;
+  return products;
 }

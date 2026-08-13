@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PriceCompare India - Smart Price Comparison",
+  title: "BuyJet - Smart Price Comparison",
   description:
     "Compare prices across top Indian e-commerce platforms instantly. Find the best deals on electronics, appliances, fashion, and more.",
   icons: {
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
           <Navbar />
-          <main className="flex flex-col flex-1">{children}</main>
+          <main className="flex flex-col flex-1 pt-16">{children}</main>
           <Footer />
         </body>
     </html>

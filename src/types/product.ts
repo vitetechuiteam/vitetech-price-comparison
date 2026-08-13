@@ -17,9 +17,12 @@ export interface Product {
   title: string;
   category: string;
   imageUrl: string;
+  images?: string[];
   sku: string;
   lowestPrice: number;
   highestPrice: number;
   offers: MerchantOffer[];
   priceHistory?: PriceHistoryPoint[];
+  rating?: number;
+  reviews?: number;
 }

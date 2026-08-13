@@ -2,6 +2,30 @@ import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
 
 const SERPAPI_BASE = "https://serpapi.com/search";
 
+// Only show results from these trusted Indian retailers
+const TRUSTED_MERCHANTS: RegExp[] = [
+  /amazon/i,
+  /flipkart/i,
+  /croma/i,
+  /reliance\s*digital/i,
+  /reliancedigital/i,
+  /tata\s*cliq/i,
+  /tatacliq/i,
+  /vijay\s*sales/i,
+  /vijaysales/i,
+  /myntra/i,
+  /nykaa/i,
+  /samsung/i,
+  /apple/i,
+  /meesho/i,
+  /ajio/i,
+];
+
+function isTrustedMerchant(source: string, productUrl: string): boolean {
+  const text = `${source} ${productUrl}`.toLowerCase();
+  return TRUSTED_MERCHANTS.some((pattern) => pattern.test(text));
+}
+
 interface SerpApiShoppingResult {
   title?: string;
   link?: string;
@@ -16,6 +40,8 @@ interface SerpApiShoppingResult {
   second_hand_condition?: string;
   multiple_sources?: boolean;
   immersive_product_page_token?: string;
+  rating?: number;
+  reviews?: number;
 }
 
 interface SerpApiResponse {
@@ -36,21 +62,37 @@ function parsePrice(extracted?: number, raw?: string): number | null {
   return null;
 }
 
+function isGoogleUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname === "google.com" || hostname.endsWith(".google.com");
+  } catch {
+    return false;
+  }
+}
+
+function pickBestUrl(link?: string, productLink?: string): string | undefined {
+  // `link` is the direct store URL; `product_link` is the Google Shopping page.
+  // Prefer `link` if it's not a Google URL, otherwise fall back to `product_link`.
+  if (link && !isGoogleUrl(link)) return link;
+  if (productLink && !isGoogleUrl(productLink)) return productLink;
+  return link ?? productLink; // last resort — both are Google URLs
+}
+
 function toAdapterOffer(r: SerpApiShoppingResult, query: string): AdapterOffer | null {
   if (!r.source || !r.title) return null;
 
   // Skip used / refurbished / pre-owned listings
   if (r.second_hand_condition) return null;
 
-  // SerpAPI for India now returns product_link instead of link
-  const productUrl = r.link ?? r.product_link;
+  const productUrl = pickBestUrl(r.link, r.product_link);
   if (!productUrl) return null;
 
   const price = parsePrice(r.extracted_price, r.price);
   if (price === null) return null;
 
   const originalPrice = parsePrice(r.extracted_original_price, r.original_price);
-  const productId = r.product_id ?? slugify(r.title);
+  const productId     = r.product_id ?? slugify(r.title);
 
   return {
     merchantName:    r.source,
@@ -63,12 +105,14 @@ function toAdapterOffer(r: SerpApiShoppingResult, query: string): AdapterOffer |
     productCategory: query,
     productImageUrl: r.thumbnail ?? "",
     productSku:      r.product_id ?? productId,
-    pageToken:       r.immersive_product_page_token,
+    pageToken:        r.immersive_product_page_token,
+    productRating:    r.rating,
+    productReviews:   r.reviews,
   };
 }
 
 export const serpApiAdapter: MerchantAdapter = {
-  async fetchOffers(query: string): Promise<AdapterOffer[]> {
+  async fetchOffers(query: string, start = 0): Promise<AdapterOffer[]> {
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) {
       console.warn("[serpApiAdapter] SERPAPI_API_KEY not set — skipping live fetch");
@@ -80,6 +124,8 @@ export const serpApiAdapter: MerchantAdapter = {
     url.searchParams.set("q", query);
     url.searchParams.set("gl", "in");
     url.searchParams.set("hl", "en");
+    url.searchParams.set("num", "100");
+    if (start > 0) url.searchParams.set("start", String(start));
     url.searchParams.set("api_key", apiKey);
 
     const res = await fetch(url.toString(), { next: { revalidate: 300 } });
@@ -90,13 +136,6 @@ export const serpApiAdapter: MerchantAdapter = {
 
     const data = (await res.json()) as SerpApiResponse;
 
-    console.log("[serpApiAdapter] response keys:", Object.keys(data));
-    console.log("[serpApiAdapter] shopping_results count:", data.shopping_results?.length ?? 0);
-    if (data.error) console.error("[serpApiAdapter] error:", data.error);
-    if (data.shopping_results?.[0]) {
-      console.log("[serpApiAdapter] first result sample:", JSON.stringify(data.shopping_results[0], null, 2));
-    }
-
     if (data.error) {
       throw new Error(`SerpApi error: ${data.error}`);
     }
@@ -105,7 +144,7 @@ export const serpApiAdapter: MerchantAdapter = {
       .map((r) => toAdapterOffer(r, query))
       .filter((o): o is AdapterOffer => o !== null);
 
-    console.log("[serpApiAdapter] mapped offers count:", mapped.length);
+    console.log(`[serpApiAdapter] total: ${data.shopping_results?.length ?? 0}, mapped: ${mapped.length}`);
     return mapped;
   },
 };

@@ -157,11 +157,17 @@ export async function getProductByPageToken(
 
     if (offers.length === 0) return null;
 
+    const allImages = [...(pr.thumbnails ?? []), ...(pr.images ?? [])]
+      .filter((u, i, arr) => u && arr.indexOf(u) === i)
+      .slice(0, 5);
+    const primaryImage = allImages[0] ?? fallbackImage;
+
     return {
       id:           productId,
       title:        pr.title ?? fallbackTitle,
       category:     "Electronics",
-      imageUrl:     pr.thumbnails?.[0] ?? pr.images?.[0] ?? fallbackImage,
+      imageUrl:     primaryImage,
+      images:       allImages.length > 1 ? allImages : undefined,
       sku:          productId,
       offers,
       lowestPrice:  offers[0].price,
@@ -286,11 +292,14 @@ export async function getProductByIdFromSerpApi(productId: string): Promise<Prod
 
     if (offers.length === 0) return null;
 
+    const allImages = (pr.images ?? []).filter(Boolean).slice(0, 5);
+
     return {
       id:           productId,
       title:        pr.title ?? "Product",
       category:     "Electronics",
-      imageUrl:     pr.images?.[0] ?? "",
+      imageUrl:     allImages[0] ?? "",
+      images:       allImages.length > 1 ? allImages : undefined,
       sku:          productId,
       offers,
       lowestPrice:  offers[0].price,

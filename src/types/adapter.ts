@@ -15,9 +15,11 @@ export interface AdapterOffer extends MerchantOffer {
   productSku: string;
   priceHistory?: PriceHistoryPoint[];
   pageToken?: string;
+  productRating?: number;
+  productReviews?: number;
 }
 
 /** Contract every store adapter must satisfy. */
 export interface MerchantAdapter {
-  fetchOffers(query: string): Promise<AdapterOffer[]>;
+  fetchOffers(query: string, start?: number): Promise<AdapterOffer[]>;
 }

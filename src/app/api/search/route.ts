@@ -13,11 +13,12 @@ export const maxDuration = 60;
  */
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q") ?? "";
+  const start = parseInt(request.nextUrl.searchParams.get("start") ?? "0", 10);
 
   if (!query.trim()) {
     return NextResponse.json({ products: [], query: "" });
   }
 
-  const products = await aggregateProductData(query);
-  return NextResponse.json({ products, query });
+  const products = await aggregateProductData(query, start);
+  return NextResponse.json({ products, query, start });
 }

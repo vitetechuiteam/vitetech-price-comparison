@@ -1,14 +1,35 @@
 import Link from "next/link";
-import { ExternalLink, Tag, PackageX } from "lucide-react";
+import { ExternalLink, Tag, PackageX, Star } from "lucide-react";
 import type { Product } from "@/types/product";
 import { formatINR } from "@/lib/format";
 import { getStoreIconUrl } from "@/lib/storeIcon";
 
+function StarRating({ rating, reviews }: { rating: number; reviews?: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star
+            key={i}
+            className={`h-3 w-3 ${
+              i <= Math.round(rating)
+                ? "fill-amber-400 text-amber-400"
+                : "fill-gray-200 text-gray-200"
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-xs font-medium text-gray-600">{rating.toFixed(1)}</span>
+      {reviews && (
+        <span className="text-xs text-gray-400">({reviews.toLocaleString()})</span>
+      )}
+    </div>
+  );
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const hasSpread = product.lowestPrice !== product.highestPrice;
 
-  // Encode minimal product data in the URL so the detail page works without
-  // an extra API call — reliable across serverless and dev worker isolation.
   const snap = encodeURIComponent(JSON.stringify({
     title:        product.title,
     imageUrl:     product.imageUrl,
@@ -23,7 +44,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-md transition-shadow hover:shadow-lg">
 
-      {/* Product image — covered by the Link ::after overlay */}
+      {/* Product image */}
       <div className="flex h-48 w-full items-center justify-center bg-surface-subtle p-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -34,25 +55,27 @@ export function ProductCard({ product }: { product: Product }) {
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-3 p-4">
 
-        {/* Category + title — the Link here stretches to cover the entire card */}
+        {/* Title */}
         <div>
-          <span className="text-caption mb-1 block text-foreground-subtle">
-            {product.category}
-          </span>
           <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
             <Link
               href={detailHref}
               aria-label={`View details for ${product.title}`}
-              className="after:absolute after:inset-0 after:content-['']"
+              className="cursor-pointer after:absolute after:inset-0 after:pointer-events-none after:content-['']"
             >
               {product.title}
             </Link>
           </h3>
         </div>
 
-        {/* Price range summary */}
+        {/* Rating */}
+        {product.rating && (
+          <StarRating rating={product.rating} reviews={product.reviews} />
+        )}
+
+        {/* Price range */}
         <div className="flex items-baseline gap-2">
           <span className="text-price-sm text-success">{formatINR(product.lowestPrice)}</span>
           {hasSpread && (
@@ -65,11 +88,12 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Merchant offer rows — z-10 keeps them above the Link ::after overlay */}
+        {/* Best deal store only */}
         <ul className="relative z-10 flex flex-col gap-1.5">
-          {product.offers.map((offer) => {
-            const isBest    = offer.price === product.lowestPrice;
-            const isHighest = hasSpread && offer.price === product.highestPrice;
+          {product.offers.slice(0, 1).map((offer) => {
+            const isBest    = true;
+            const isHighest = false;
+            const canBuy    = offer.inStock && !!offer.productUrl;
 
             return (
               <li
@@ -80,7 +104,7 @@ export function ProductCard({ product }: { product: Product }) {
                   !offer.inStock ? "opacity-50" : "",
                 ].join(" ")}
               >
-                {/* Left: store icon + merchant name + badges */}
+                {/* Left: store icon + name + badges */}
                 <div className="flex min-w-0 items-center gap-1.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -110,11 +134,11 @@ export function ProductCard({ product }: { product: Product }) {
                   )}
                 </div>
 
-                {/* Right: price + buy link */}
+                {/* Right: price + buy icon button */}
                 <div className="ml-2 flex shrink-0 items-center gap-2">
                   <span
                     className={[
-                      "tabular-nums font-bold",
+                      "tabular-nums font-bold text-xs",
                       isBest    ? "text-success"  :
                       isHighest ? "text-error/75" :
                                   "text-foreground",
@@ -123,16 +147,18 @@ export function ProductCard({ product }: { product: Product }) {
                     {formatINR(offer.price)}
                   </span>
 
-                  {offer.inStock && !offer.productUrl.includes("google.com") && (
+                  {canBuy ? (
                     <a
                       href={offer.productUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Buy from ${offer.merchantName}`}
-                      className="cursor-pointer text-primary hover:text-primary-dark"
+                      className="flex cursor-pointer items-center justify-center rounded-full bg-orange-500 p-1.5 text-white transition-colors hover:bg-orange-600"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
                     </a>
+                  ) : (
+                    <div className="h-6 w-6" />
                   )}
                 </div>
               </li>
