@@ -9,6 +9,8 @@ declare global {
   var __productCache: Map<string, { data: Product; exp: number }> | undefined;
   // eslint-disable-next-line no-var
   var __pageTokenCache: Map<string, { token: string; exp: number }> | undefined;
+  // eslint-disable-next-line no-var
+  var __recentSearchResults: { products: Product[]; exp: number } | undefined;
 }
 
 if (!global.__productCache)  global.__productCache  = new Map();
@@ -45,4 +47,18 @@ export function getCachedPageToken(productId: string): string | undefined {
     return undefined;
   }
   return entry.token;
+}
+
+export function setRecentSearchResults(products: Product[]): void {
+  global.__recentSearchResults = { products, exp: Date.now() + TTL_MS };
+}
+
+export function getRecentSearchResults(): Product[] {
+  const entry = global.__recentSearchResults;
+  if (!entry) return [];
+  if (Date.now() > entry.exp) {
+    global.__recentSearchResults = undefined;
+    return [];
+  }
+  return entry.products;
 }

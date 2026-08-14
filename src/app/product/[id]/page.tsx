@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { Package } from "lucide-react";
+import { Package, Tag } from "lucide-react";
 import { BackButton } from "@/components/features/BackButton";
 import type { Product } from "@/types/product";
-import { getCachedProduct, getCachedPageToken } from "@/services/productCache";
+import { getCachedProduct, getCachedPageToken, getRecentSearchResults } from "@/services/productCache";
 import { getProductByPageToken, getProductByIdFromSerpApi } from "@/services/serpApiProductService";
 import { PriceComparisonTable } from "@/components/features/PriceComparisonTable";
 import { PriceHistoryChart } from "@/components/features/PriceHistoryChart";
 import { ProductImageGallery } from "@/components/features/ProductImageGallery";
+import { SimilarProducts } from "@/components/features/SimilarProducts";
+import { ProductReviews } from "@/components/features/ProductReviews";
 import { formatINR } from "@/lib/format";
 
 export const maxDuration = 60;
@@ -49,8 +51,29 @@ export default async function ProductDetailPage({
       )
     : await getProductByIdFromSerpApi(id);
 
+  // The in-memory cache (set during search) always carries rating/reviews.
+  // Use it as a reliable source even when the URL snap predates the rating fix.
+  const cachedProduct = getCachedProduct(id);
+
   // Prefer live multi-store data; fall back to single-store URL param data.
-  const product: Product | null = liveProduct ?? fallback;
+  // Merge: live data has offers/prices; cache/fallback has rating/reviews.
+  const product: Product | null = liveProduct
+    ? {
+        ...liveProduct,
+        rating:      liveProduct.rating      ?? cachedProduct?.rating  ?? fallback?.rating,
+        reviews:     liveProduct.reviews     ?? cachedProduct?.reviews ?? fallback?.reviews,
+        reviewsList: liveProduct.reviewsList ?? cachedProduct?.reviewsList,
+        // Merge: API images + search-result gallery thumbnails (from snap/cache)
+        images: (() => {
+          const merged = [...new Set([
+            ...(liveProduct.images     ?? []),
+            ...(fallback?.images       ?? []),
+            ...(cachedProduct?.images  ?? []),
+          ].filter(Boolean))];
+          return merged.length > 0 ? merged : undefined;
+        })(),
+      }
+    : fallback;
 
   /* ── Not found ── */
   if (!product) {
@@ -74,68 +97,87 @@ export default async function ProductDetailPage({
   // Use fallback title/image when live data doesn't have them
   const title    = product.title    || fallback?.title    || "Product";
   const imageUrl = product.imageUrl || fallback?.imageUrl || "";
-  const category = product.category || fallback?.category || "";
 
-  const hasSpread = product.lowestPrice !== product.highestPrice;
-  const bestOffer = product.offers.find((o) => o.inStock && o.price === product.lowestPrice);
+  const hasSpread  = product.lowestPrice !== product.highestPrice;
+  const bestOffer  = product.offers.find((o) => o.inStock && o.price === product.lowestPrice);
+  const similarProducts = getRecentSearchResults().filter((p) => p.id !== id).slice(0, 8);
+  const savingsPct = hasSpread
+    ? Math.round(((product.highestPrice - product.lowestPrice) / product.highestPrice) * 100)
+    : 0;
 
   return (
-    <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="w-full flex-1 px-6 py-8 sm:px-10">
 
       {/* Back link — uses browser history so it restores the previous search results */}
       <BackButton />
 
-      {/* ── Product hero ── */}
-      <div className="mb-8 flex flex-col gap-8 lg:flex-row">
+      {/* ── Product hero — single card ── */}
+      <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+        <div className="flex flex-col lg:flex-row">
 
-        {/* Image panel */}
-        <div className="rounded-2xl border border-border bg-surface-subtle p-4 lg:w-2/5">
-          <ProductImageGallery
-            images={product.images && product.images.length > 0 ? product.images : [imageUrl]}
-            alt={title}
-          />
-        </div>
+          {/* Image panel */}
+          <div className="border-b border-border bg-surface-subtle p-6 lg:w-2/5 lg:border-b-0 lg:border-r">
+            <ProductImageGallery
+              images={product.images && product.images.length > 0 ? product.images : [imageUrl]}
+              alt={title}
+            />
+          </div>
 
-        {/* Info panel */}
-        <div className="flex flex-col justify-center gap-5 lg:w-3/5">
+          {/* Info panel */}
+          <div className="flex flex-col justify-center gap-5 p-7 lg:w-3/5">
 
-          <div>
-            <span className="text-caption text-foreground-subtle">{category}</span>
-            <h1 className="mt-1 text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
+            <h1 className="text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
               {title}
             </h1>
-          </div>
 
-          {/* Price range */}
-          <div className="flex items-baseline gap-3">
-            <span className="text-price text-success">{formatINR(product.lowestPrice)}</span>
-            {hasSpread && (
-              <>
-                <span className="text-foreground-subtle">–</span>
-                <span className="text-lg font-semibold text-error/75">
-                  {formatINR(product.highestPrice)}
+            {/* Rating */}
+            {product.rating && (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2.5 py-0.5 text-sm font-bold text-white">
+                  {product.rating.toFixed(1)} ★
                 </span>
-              </>
+                {product.reviews && (
+                  <span className="text-sm text-foreground-muted">
+                    {product.reviews.toLocaleString()} ratings &amp; reviews
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Price range box */}
+            <div className="rounded-xl bg-orange-50 px-5 py-4 ring-1 ring-orange-100">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-700">
+                <Tag className="h-3 w-3" aria-hidden="true" />
+                Price Range Across Stores
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-3xl font-black text-gray-900">{formatINR(product.lowestPrice)}</span>
+                {hasSpread && (
+                  <>
+                    <span className="text-lg text-gray-400 line-through">{formatINR(product.highestPrice)}</span>
+                    <span className="rounded-full bg-green-100 px-3 py-0.5 text-sm font-bold text-green-700">
+                      Save {formatINR(product.highestPrice - product.lowestPrice)} ({savingsPct}%)
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-gray-400">
+                Compared across {product.offers.length} {product.offers.length === 1 ? "store" : "stores"}
+              </p>
+            </div>
+
+            {/* Best-price CTA — direct store link from google_product */}
+            {bestOffer && (
+              <a
+                href={bestOffer.productUrl}
+                target="_blank"
+                rel="nofollow sponsored noopener noreferrer"
+                className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-success/90"
+              >
+                Buy at Best Price — {formatINR(product.lowestPrice)}
+              </a>
             )}
           </div>
-
-          <p className="text-sm text-foreground-muted">
-            Available across{" "}
-            <span className="font-semibold text-foreground">{product.offers.length}</span>{" "}
-            {product.offers.length === 1 ? "store" : "stores"}
-          </p>
-
-          {/* Best-price CTA — direct store link from google_product */}
-          {bestOffer && (
-            <a
-              href={bestOffer.productUrl}
-              target="_blank"
-              rel="nofollow sponsored noopener noreferrer"
-              className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-success/90"
-            >
-              Buy at Best Price — {formatINR(product.lowestPrice)}
-            </a>
-          )}
         </div>
       </div>
 
@@ -151,6 +193,18 @@ export default async function ProductDetailPage({
           currentLowestPrice={product.lowestPrice}
         />
       )}
+
+      {/* ── Customer reviews ── */}
+      {product.reviewsList && product.reviewsList.length > 0 && (
+        <ProductReviews
+          reviews={product.reviewsList}
+          overallRating={product.rating}
+          totalReviews={product.reviews}
+        />
+      )}
+
+      {/* ── Similar products ── */}
+      <SimilarProducts products={similarProducts} />
     </div>
   );
 }

@@ -33,11 +33,14 @@ export function ProductCard({ product }: { product: Product }) {
   const snap = encodeURIComponent(JSON.stringify({
     title:        product.title,
     imageUrl:     product.imageUrl,
+    images:       product.images,
     category:     product.category,
     sku:          product.sku,
     lowestPrice:  product.lowestPrice,
     highestPrice: product.highestPrice,
     offers:       product.offers,
+    rating:       product.rating,
+    reviews:      product.reviews,
   }));
   const detailHref = `/product/${product.id}?d=${snap}`;
 
@@ -63,7 +66,7 @@ export function ProductCard({ product }: { product: Product }) {
             <Link
               href={detailHref}
               aria-label={`View details for ${product.title}`}
-              className="cursor-pointer after:absolute after:inset-0 after:pointer-events-none after:content-['']"
+              className="after:absolute after:inset-0 after:content-['']"
             >
               {product.title}
             </Link>

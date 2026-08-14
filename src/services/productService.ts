@@ -1,8 +1,7 @@
 import type { Product, MerchantOffer } from "@/types/product";
 import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
 import { serpApiAdapter } from "./adapters/serpApiAdapter";
-import { setCachedProducts, cachePageToken } from "./productCache";
-import { getProductByPageToken } from "./serpApiProductService";
+import { setCachedProducts, cachePageToken, setRecentSearchResults } from "./productCache";
 
 /* ── Registered adapters ────────────────────────────────────────────────────── */
 
@@ -10,6 +9,45 @@ const ADAPTERS: MerchantAdapter[] = [serpApiAdapter];
 
 // SerpAPI for India can take 5–10 s; give it a generous budget
 const ADAPTER_TIMEOUT_MS = 20000;
+
+/* ── URL query normalizer ────────────────────────────────────────────────────── */
+
+interface ParsedQuery {
+  searchQuery:     string;       // clean keyword string to send to SerpAPI
+  boostIdentifier: string | null; // ASIN / item-id to boost the exact product to #1
+}
+
+function parseQueryUrl(raw: string): ParsedQuery {
+  try {
+    const url  = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "");
+
+    // Amazon: amazon.in/product-slug/dp/ASIN/...
+    if (host.includes("amazon.")) {
+      const asinMatch = url.pathname.match(/\/dp\/([A-Z0-9]{10})/i);
+      const slugMatch = url.pathname.match(/^\/([^/]+)\/dp\//);
+      if (asinMatch) {
+        const asin = asinMatch[1].toUpperCase();
+        const slug = slugMatch ? slugMatch[1].replace(/-/g, " ") : asin;
+        return { searchQuery: slug, boostIdentifier: asin };
+      }
+    }
+
+    // Flipkart: flipkart.com/product-slug/p/itemid
+    if (host.includes("flipkart.")) {
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[1] === "p" && parts[0]) {
+        return {
+          searchQuery:     parts[0].replace(/-/g, " "),
+          boostIdentifier: parts[2] ?? null,
+        };
+      }
+    }
+  } catch {
+    // not a URL — fall through
+  }
+  return { searchQuery: raw, boostIdentifier: null };
+}
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -40,8 +78,10 @@ export async function aggregateProductData(query: string, start = 0): Promise<Pr
   const q = query.trim();
   if (!q) return [];
 
+  const { searchQuery, boostIdentifier } = parseQueryUrl(q);
+
   const settled = await Promise.allSettled(
-    ADAPTERS.map((adapter) => withTimeout(adapter.fetchOffers(q, start), ADAPTER_TIMEOUT_MS))
+    ADAPTERS.map((adapter) => withTimeout(adapter.fetchOffers(searchQuery, start), ADAPTER_TIMEOUT_MS))
   );
 
   const allOffers: AdapterOffer[] = settled
@@ -61,7 +101,6 @@ export async function aggregateProductData(query: string, start = 0): Promise<Pr
   }
 
   const products: Product[] = [];
-  const pageTokenMap = new Map<string, string>(); // productId → immersive page token
 
   for (const [, offers] of byProduct) {
     /* Deduplicate: keep only the lowest-price listing per merchant */
@@ -80,18 +119,22 @@ export async function aggregateProductData(query: string, start = 0): Promise<Pr
       .map(toMerchantOffer)
       .sort((a, b) => a.price - b.price);
 
-    // Cache the immersive page token so the detail page can fetch all sellers
+    // Cache the immersive page token so the detail page can fetch all sellers on demand
     const pageToken = deduped.find((o) => o.pageToken)?.pageToken;
-    if (pageToken) {
-      cachePageToken(meta.productId, pageToken);
-      pageTokenMap.set(meta.productId, pageToken);
-    }
+    if (pageToken) cachePageToken(meta.productId, pageToken);
+
+    // Collect unique thumbnails from all merchant offers — different merchants
+    // often have different product angles, giving us a free multi-image gallery.
+    const galleryImages = [...new Set(
+      deduped.map((o) => o.productImageUrl).filter(Boolean),
+    )];
 
     products.push({
       id:           meta.productId,
       title:        meta.productTitle,
       category:     meta.productCategory,
       imageUrl:     meta.productImageUrl,
+      images:       galleryImages.length > 1 ? galleryImages : undefined,
       sku:          meta.productSku,
       priceHistory: meta.priceHistory,
       offers:       sorted,
@@ -102,25 +145,20 @@ export async function aggregateProductData(query: string, start = 0): Promise<Pr
     });
   }
 
-  // Enrich all products with direct store URLs via the immersive product endpoint.
-  // Runs in parallel — falls back to original Google Shopping URLs on failure.
-  await Promise.allSettled(
-    products.map(async (product) => {
-      const token = pageTokenMap.get(product.id);
-      if (!token) return;
-      const enriched = await getProductByPageToken(token, product.id, product.title, product.imageUrl);
-      if (enriched && enriched.offers.length > 0) {
-        product.offers       = enriched.offers;
-        product.lowestPrice  = enriched.lowestPrice;
-        product.highestPrice = enriched.highestPrice;
-        if (enriched.images)   product.images   = enriched.images;
-        if (enriched.imageUrl) product.imageUrl = enriched.imageUrl;
-      }
-    })
-  );
+  // If the original query was a store URL, boost the exact product match to #1
+  if (boostIdentifier) {
+    const matchIdx = products.findIndex((p) =>
+      p.offers.some((o) => o.productUrl.includes(boostIdentifier))
+    );
+    if (matchIdx > 0) {
+      const [match] = products.splice(matchIdx, 1);
+      products.unshift(match);
+    }
+  }
 
   // Cache for product detail page lookups (preserve API relevance order)
   setCachedProducts(products);
+  setRecentSearchResults(products);
 
   return products;
 }

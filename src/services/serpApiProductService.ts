@@ -1,4 +1,4 @@
-import type { Product, MerchantOffer } from "@/types/product";
+import type { Product, MerchantOffer, ReviewItem } from "@/types/product";
 
 const SERPAPI_BASE = "https://serpapi.com/search";
 
@@ -24,16 +24,39 @@ interface ImmersiveSeller {
   [key: string]: unknown;
 }
 
+interface ImmersiveMedia {
+  link?: string;
+  image?: string;
+  thumbnail?: string;
+}
+
+interface ImmersiveReview {
+  rating?: number;
+  date?: string;
+  title?: string;
+  content?: string;
+  source?: string;
+  author?: string;
+  snippet?: string;
+  [key: string]: unknown;
+}
+
 interface ImmersiveProductResult {
   title?: string;
   description?: string;
   images?: string[];
   thumbnails?: string[];
+  media?: ImmersiveMedia[];
+  product_images?: string[];
+  reviews?: ImmersiveReview[];
+  customer_reviews?: ImmersiveReview[];
+  top_reviews?: ImmersiveReview[];
   stores?: ImmersiveSeller[];
   sellers?: ImmersiveSeller[];
   online_sellers?: ImmersiveSeller[];
   buying_options?: ImmersiveSeller[];
   prices?: ImmersiveSeller[];
+  [key: string]: unknown;
 }
 
 interface ImmersiveProductResponse {
@@ -157,21 +180,47 @@ export async function getProductByPageToken(
 
     if (offers.length === 0) return null;
 
-    const allImages = [...(pr.thumbnails ?? []), ...(pr.images ?? [])]
-      .filter((u, i, arr) => u && arr.indexOf(u) === i)
-      .slice(0, 5);
+    const mediaUrls = (pr.media ?? [])
+      .map((m) => m.link ?? m.image ?? m.thumbnail ?? "")
+      .filter(Boolean);
+    // Seed with fallbackImage so any additional API image produces a 2-item gallery
+    const allImages = [
+      fallbackImage,
+      ...(pr.thumbnails      ?? []),
+      ...(pr.images          ?? []),
+      ...(pr.product_images  ?? []),
+      ...mediaUrls,
+    ].filter((u, i, arr) => Boolean(u) && arr.indexOf(u) === i)
+     .slice(0, 8);
     const primaryImage = allImages[0] ?? fallbackImage;
+
+    const rawReviews = [
+      ...(pr.reviews         ?? []),
+      ...(pr.customer_reviews ?? []),
+      ...(pr.top_reviews      ?? []),
+    ];
+    const reviewsList: ReviewItem[] = rawReviews
+      .slice(0, 6)
+      .map((r) => ({
+        rating:  r.rating,
+        date:    r.date,
+        title:   r.title,
+        content: r.content ?? r.snippet,
+        source:  r.source,
+        author:  r.author,
+      }));
 
     return {
       id:           productId,
       title:        pr.title ?? fallbackTitle,
       category:     "Electronics",
       imageUrl:     primaryImage,
-      images:       allImages.length > 1 ? allImages : undefined,
+      images:       allImages.length > 0 ? allImages : undefined,
       sku:          productId,
       offers,
       lowestPrice:  offers[0].price,
       highestPrice: offers[offers.length - 1].price,
+      reviewsList:  reviewsList.length > 0 ? reviewsList : undefined,
     };
   } catch (err) {
     console.error(`[immersiveProduct] fetch failed:`, err);

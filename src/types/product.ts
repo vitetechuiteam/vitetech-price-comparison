@@ -12,6 +12,15 @@ export interface PriceHistoryPoint {
   price: number;
 }
 
+export interface ReviewItem {
+  rating?: number;
+  date?: string;
+  title?: string;
+  content?: string;
+  source?: string;
+  author?: string;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -25,4 +34,5 @@ export interface Product {
   priceHistory?: PriceHistoryPoint[];
   rating?: number;
   reviews?: number;
+  reviewsList?: ReviewItem[];
 }

@@ -473,7 +473,7 @@ function SearchResults() {
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
+      <div className="w-full px-6 py-6 pb-24 sm:px-10 lg:pb-6">
         <div className="flex gap-6">
 
           {/* Desktop filter sidebar */}

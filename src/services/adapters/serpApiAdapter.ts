@@ -124,7 +124,7 @@ export const serpApiAdapter: MerchantAdapter = {
     url.searchParams.set("q", query);
     url.searchParams.set("gl", "in");
     url.searchParams.set("hl", "en");
-    url.searchParams.set("num", "100");
+    url.searchParams.set("num", "20");
     if (start > 0) url.searchParams.set("start", String(start));
     url.searchParams.set("api_key", apiKey);
 

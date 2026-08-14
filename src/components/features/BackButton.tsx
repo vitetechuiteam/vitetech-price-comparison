@@ -10,7 +10,7 @@ export function BackButton() {
     <button
       type="button"
       onClick={() => router.back()}
-      className="mb-8 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground-muted transition-colors hover:text-foreground"
+      className="mb-6 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-800"
     >
       <ArrowLeft className="h-4 w-4" aria-hidden="true" />
       Back to results

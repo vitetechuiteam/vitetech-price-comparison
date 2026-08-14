@@ -210,7 +210,7 @@ export default function Navbar() {
   const dropdownRef                   = useRef<HTMLDivElement>(null);
 
   const pathname     = usePathname();
-  const isSearchPage = pathname === "/search";
+  const isSearchPage = pathname === "/search" || pathname.startsWith("/product/");
 
   useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 10); }
@@ -242,7 +242,7 @@ export default function Navbar() {
   return (
     <>
       <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-border bg-white shadow-sm transition-all duration-300">
-        <div className="w-full px-6 sm:px-10">
+        <div className="mx-auto w-full max-w-screen-2xl px-6 sm:px-10">
           <div className={`flex items-center transition-all duration-300 ${scrolled ? "h-12" : "h-16"}`}>
 
             {/* Logo — always left */}
@@ -250,12 +250,12 @@ export default function Navbar() {
               <Image
                 src="/logo.svg"
                 alt="BuyJet"
-                width={160}
-                height={36}
+                width={200}
+                height={45}
                 priority
                 style={{
-                  width:      scrolled ? 120 : 160,
-                  height:     scrolled ? 27  : 36,
+                  width:      scrolled ? 150 : 200,
+                  height:     scrolled ? 34  : 45,
                   transition: "width 0.3s, height 0.3s",
                 }}
               />

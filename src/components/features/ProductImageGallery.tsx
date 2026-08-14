@@ -20,7 +20,7 @@ export function ProductImageGallery({
           key={selected}
           src={images[selected]}
           alt={alt}
-          className="max-h-64 w-full object-contain transition-opacity duration-200"
+          className="max-h-72 w-full object-contain transition-opacity duration-200"
         />
       </div>
 
