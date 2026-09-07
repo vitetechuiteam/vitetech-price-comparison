@@ -2,26 +2,14 @@ import type { MerchantAdapter, AdapterOffer } from "@/types/adapter";
 
 const SERPAPI_BASE = "https://serpapi.com/search";
 
-// Only show results from these trusted Indian retailers
+// Only show results from these supported platforms
 const TRUSTED_MERCHANTS: RegExp[] = [
   /amazon/i,
   /flipkart/i,
-  /croma/i,
-  /reliance\s*digital/i,
-  /reliancedigital/i,
-  /tata\s*cliq/i,
-  /tatacliq/i,
-  /vijay\s*sales/i,
-  /vijaysales/i,
-  /myntra/i,
-  /nykaa/i,
-  /samsung/i,
-  /apple/i,
-  /meesho/i,
-  /ajio/i,
+  /jiomart/i,
 ];
 
-function isTrustedMerchant(source: string, productUrl: string): boolean {
+export function isTrustedMerchant(source: string, productUrl: string): boolean {
   const text = `${source} ${productUrl}`.toLowerCase();
   return TRUSTED_MERCHANTS.some((pattern) => pattern.test(text));
 }
@@ -32,9 +20,11 @@ interface SerpApiShoppingResult {
   product_link?: string;
   source?: string;
   price?: string;
-  extracted_price?: number;
+  extracted_price?: number | string;
   original_price?: string;
-  extracted_original_price?: number;
+  extracted_original_price?: number | string;
+  old_price?: string;
+  extracted_old_price?: number | string;
   thumbnail?: string;
   product_id?: string;
   second_hand_condition?: string;
@@ -53,16 +43,22 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-function parsePrice(extracted?: number, raw?: string): number | null {
+function parsePrice(extracted?: number | string, raw?: string): number | null {
   if (typeof extracted === "number" && extracted > 0) return extracted;
-  if (raw) {
-    const n = parseFloat(raw.replace(/[^\d.]/g, ""));
+  const extractedText = typeof extracted === "string" ? extracted : raw;
+  if (extractedText) {
+    const n = parseFloat(extractedText.replace(/[^\d.]/g, ""));
     if (!isNaN(n) && n > 0) return n;
   }
   return null;
 }
 
-function isGoogleUrl(url: string): boolean {
+function normalizeMerchantName(source: string): string {
+  if (source.toLowerCase().includes("flipkart")) return "Flipkart";
+  return source.trim();
+}
+
+export function isGoogleUrl(url: string): boolean {
   try {
     const hostname = new URL(url).hostname;
     return hostname === "google.com" || hostname.endsWith(".google.com");
@@ -88,14 +84,20 @@ function toAdapterOffer(r: SerpApiShoppingResult, query: string): AdapterOffer |
   const productUrl = pickBestUrl(r.link, r.product_link);
   if (!productUrl) return null;
 
+  // Only keep offers from supported platforms (Amazon, Flipkart)
+  if (!isTrustedMerchant(r.source, productUrl)) return null;
+
   const price = parsePrice(r.extracted_price, r.price);
   if (price === null) return null;
 
-  const originalPrice = parsePrice(r.extracted_original_price, r.original_price);
+  const originalPrice = parsePrice(
+    r.extracted_original_price ?? r.extracted_old_price,
+    r.original_price ?? r.old_price,
+  );
   const productId     = r.product_id ?? slugify(r.title);
 
   return {
-    merchantName:    r.source,
+    merchantName:    normalizeMerchantName(r.source),
     price,
     originalPrice:   originalPrice !== null ? originalPrice : undefined,
     inStock:         true,

@@ -97,14 +97,14 @@ function AuthModal({
 
         {/* Header */}
         <div className="px-6 pb-0 pt-6">
-          <Image src="/logo.svg" alt="BuyJet" width={90} height={20} className="mb-4" />
+          <Image src="/logo.svg" alt="BuyDaash" width={90} height={20} className="mb-4" />
           <h2 className="text-xl font-bold text-gray-900">
             {tab === "signin" ? "Welcome back" : "Create account"}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             {tab === "signin"
               ? "Sign in to track prices and save products."
-              : "Join BuyJet to get the best deals."}
+              : "Join BuyDaash to get the best deals."}
           </p>
         </div>
 
@@ -248,8 +248,8 @@ export default function Navbar() {
             {/* Logo — always left */}
             <Link href="/" className="flex flex-shrink-0 cursor-pointer items-center no-underline hover:no-underline">
               <Image
-                src="/logo.svg"
-                alt="BuyJet"
+                src="/buy-dassh-logo.svg"
+                alt="BuyDaash"
                 width={200}
                 height={45}
                 priority
@@ -269,10 +269,10 @@ export default function Navbar() {
             )}
 
             {/* Profile / Auth — always right */}
-            <div className="relative ml-auto flex-shrink-0" ref={dropdownRef}>
+            <div className="min-w-[200px]"></div>
+            {/* <div className="relative ml-auto flex-shrink-0" ref={dropdownRef}>
               {user ? (
                 <>
-                  {/* Signed-in avatar button */}
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     className="flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-gray-100"
@@ -287,7 +287,6 @@ export default function Navbar() {
                     <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                   </button>
 
-                  {/* Dropdown */}
                   {dropdownOpen && (
                     <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-gray-100 bg-white py-2 shadow-lg">
                       <div className="border-b border-gray-100 px-4 pb-2">
@@ -305,7 +304,6 @@ export default function Navbar() {
                   )}
                 </>
               ) : (
-                /* Guest — profile icon opens auth modal */
                 <button
                   onClick={() => setAuthOpen(true)}
                   aria-label="Sign in"
@@ -315,7 +313,7 @@ export default function Navbar() {
                   <span className="hidden sm:inline">Sign In</span>
                 </button>
               )}
-            </div>
+            </div> */}
 
           </div>
         </div>

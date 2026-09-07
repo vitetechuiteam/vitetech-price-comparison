@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BuyJet - Smart Price Comparison",
+  title: "BuyDaash - Smart Price Comparison",
   description:
     "Compare prices across top Indian e-commerce platforms instantly. Find the best deals on electronics, appliances, fashion, and more.",
   icons: {

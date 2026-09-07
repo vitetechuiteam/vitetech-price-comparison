@@ -136,8 +136,8 @@ const [user, setUser] = useState<AuthUser | null>(null);
 | Removed category label from product cards (was showing raw search query) | `ProductCard.tsx` |
 | Removed SKU line from product detail page | `product/[id]/page.tsx` |
 | Title text on detail page changed from `text-foreground` to `text-gray-900` for better contrast | `product/[id]/page.tsx` |
-| Renamed all BuyDash references to BuyJet across layout and pages | `layout.tsx`, `page.tsx`, `Navbar.tsx` |
-| Updated logo (`/public/logo.svg`) and favicon (`/public/fav-icon.svg`) to BuyJet branding | `public/` |
+| Renamed all BuyDash references to BuyDaash across layout and pages | `layout.tsx`, `page.tsx`, `Navbar.tsx` |
+| Updated logo (`/public/logo.svg`) and favicon (`/public/fav-icon.svg`) to BuyDaash branding | `public/` |
 
 ---
 
@@ -159,8 +159,8 @@ const [user, setUser] = useState<AuthUser | null>(null);
 | `src/components/layout/Navbar.tsx` | Full auth modal, avatar, signed-in dropdown |
 | `src/app/product/[id]/page.tsx` | Image gallery; removed SKU; better title color |
 | `src/app/search/page.tsx` | Dual-handle price range slider; price filter logic |
-| `public/logo.svg` | BuyJet logo |
-| `public/fav-icon.svg` | BuyJet favicon |
+| `public/logo.svg` | BuyDaash logo |
+| `public/fav-icon.svg` | BuyDaash favicon |
 
 ---
 

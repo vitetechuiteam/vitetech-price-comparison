@@ -1,4 +1,5 @@
 import type { Product, MerchantOffer, ReviewItem } from "@/types/product";
+import { isTrustedMerchant } from "./adapters/serpApiAdapter";
 
 const SERPAPI_BASE = "https://serpapi.com/search";
 
@@ -48,7 +49,11 @@ interface ImmersiveProductResult {
   thumbnails?: string[];
   media?: ImmersiveMedia[];
   product_images?: string[];
-  reviews?: ImmersiveReview[];
+  // NOTE: `reviews` is the *review count* (number) in google_immersive_product,
+  // not a review-item array. The actual review text lives in `user_reviews`.
+  reviews?: number;
+  rating?: number;
+  user_reviews?: ImmersiveReview[];
   customer_reviews?: ImmersiveReview[];
   top_reviews?: ImmersiveReview[];
   stores?: ImmersiveSeller[];
@@ -76,11 +81,6 @@ function parsePrice(extracted?: number, raw?: string): number | null {
 }
 
 function collectSellers(pr: ImmersiveProductResult): ImmersiveSeller[] {
-  // Log first store entry to confirm field names (remove after debugging)
-  if (pr.stores?.[0]) {
-    console.log(`[immersiveProduct] first store entry:`, JSON.stringify(pr.stores[0]));
-  }
-
   const lists: ImmersiveSeller[][] = [
     pr.stores          ?? [],   // google_immersive_product primary field
     pr.sellers         ?? [],
@@ -136,21 +136,11 @@ export async function getProductByPageToken(
 
     const data = (await res.json()) as ImmersiveProductResponse;
 
-    console.log(`[immersiveProduct] top-level keys:`, Object.keys(data));
     if (data.error) { console.warn(`[immersiveProduct] error:`, data.error); return null; }
     if (!data.product_results) { console.warn(`[immersiveProduct] no product_results`); return null; }
 
     const pr = data.product_results;
-    console.log(`[immersiveProduct] product_results keys:`, Object.keys(pr));
-    console.log(`[immersiveProduct] stores:`, (pr.stores ?? []).length,
-      `| sellers:`, (pr.sellers ?? []).length,
-      `| online_sellers:`, (pr.online_sellers ?? []).length,
-      `| buying_options:`, (pr.buying_options ?? []).length,
-      `| prices:`, (pr.prices ?? []).length);
-
     const allSellers = collectSellers(pr);
-    console.log(`[immersiveProduct] unique sellers:`, allSellers.length,
-      allSellers.map((s) => `${s.name}:₹${parsePrice(s.extracted_price, s.base_price)}`));
 
     const offers: MerchantOffer[] = allSellers
       .map((s): MerchantOffer | null => {
@@ -173,10 +163,9 @@ export async function getProductByPageToken(
         };
       })
       .filter((o): o is MerchantOffer => o !== null)
+      // Only show Amazon and Flipkart — drop Croma, Reliance Digital, boAt, etc.
+      .filter((o) => isTrustedMerchant(o.merchantName, o.productUrl))
       .sort((a, b) => a.price - b.price);
-
-    console.log(`[immersiveProduct] valid offers:`, offers.length,
-      offers.map((o) => `${o.merchantName}:₹${o.price}`));
 
     if (offers.length === 0) return null;
 
@@ -195,7 +184,7 @@ export async function getProductByPageToken(
     const primaryImage = allImages[0] ?? fallbackImage;
 
     const rawReviews = [
-      ...(pr.reviews         ?? []),
+      ...(pr.user_reviews     ?? []),
       ...(pr.customer_reviews ?? []),
       ...(pr.top_reviews      ?? []),
     ];
@@ -205,9 +194,9 @@ export async function getProductByPageToken(
         rating:  r.rating,
         date:    r.date,
         title:   r.title,
-        content: r.content ?? r.snippet,
+        content: r.content ?? r.snippet ?? (r.text as string | undefined),
         source:  r.source,
-        author:  r.author,
+        author:  r.author ?? (r.user_name as string | undefined),
       }));
 
     return {
@@ -220,6 +209,8 @@ export async function getProductByPageToken(
       offers,
       lowestPrice:  offers[0].price,
       highestPrice: offers[offers.length - 1].price,
+      rating:       typeof pr.rating === "number" ? pr.rating : undefined,
+      reviews:      typeof pr.reviews === "number" ? pr.reviews : undefined,
       reviewsList:  reviewsList.length > 0 ? reviewsList : undefined,
     };
   } catch (err) {
@@ -337,6 +328,8 @@ export async function getProductByIdFromSerpApi(productId: string): Promise<Prod
         };
       })
       .filter((o): o is MerchantOffer => o !== null)
+      // Only show Amazon and Flipkart — drop other retailers.
+      .filter((o) => isTrustedMerchant(o.merchantName, o.productUrl))
       .sort((a, b) => a.price - b.price);
 
     if (offers.length === 0) return null;

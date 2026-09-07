@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, PackageSearch, SlidersHorizontal, X, Star, ChevronDown, ChevronUp, ListFilter, ArrowUpDown, Check } from "lucide-react";
+import { Loader2, PackageSearch, X, Star, ChevronDown, ChevronUp, ListFilter, ArrowUpDown, Check } from "lucide-react";
 import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/features/ProductCard";
 import { formatINR } from "@/lib/format";
@@ -24,19 +24,61 @@ const RATING_OPTIONS = [
   { value: 2, label: "2★ & above" },
 ];
 
+/* ── Merchant name normalization ─────────────────────────────────────────────── */
+// SerpAPI returns inconsistent casing/sub-brand variants for the same store
+// (e.g. "Amazon.in", "amazon.in", "Flipkart", "Shopsy By Flipkart",
+// "JioMart Electronics"). Normalize to a single canonical platform label so
+// the filter always shows one clean entry per store instead of duplicates
+// or missing entries.
+function normalizePlatform(merchantName: string): string {
+  const lower = merchantName.toLowerCase();
+  if (lower.includes("amazon")) return "Amazon";
+  if (lower.includes("flipkart")) return "Flipkart";
+  if (lower.includes("jiomart")) return "JioMart";
+  return merchantName;
+}
+
 /* ── Skeleton card ───────────────────────────────────────────────────────────── */
 
 function SkeletonCard() {
   return (
-    <div className="animate-pulse overflow-hidden rounded-2xl border border-border bg-white shadow-md">
-      <div className="h-48 bg-gray-200" />
-      <div className="flex flex-col gap-3 p-4">
-        <div className="h-3 w-1/3 rounded bg-gray-200" />
-        <div className="h-4 w-full rounded bg-gray-200" />
-        <div className="h-4 w-3/4 rounded bg-gray-200" />
-        <div className="h-8 rounded bg-gray-200" />
-        <div className="h-8 rounded bg-gray-200" />
+    <div className="animate-pulse overflow-hidden rounded-2xl border border-border bg-surface shadow-md">
+      <div className="flex h-48 w-full items-center justify-center bg-surface-muted">
+        <div className="h-24 w-24 rounded-xl bg-surface-subtle" />
       </div>
+      <div className="flex flex-col gap-3 p-4">
+        <div className="h-4 w-3/4 rounded-lg bg-surface-muted" />
+        <div className="h-3 w-1/2 rounded-lg bg-surface-muted" />
+        <div className="h-5 w-1/3 rounded-lg bg-surface-muted" />
+        <div className="mt-1 h-14 rounded-lg bg-surface-muted" />
+      </div>
+    </div>
+  );
+}
+
+/* ── Skeleton filter sidebar ─────────────────────────────────────────────────── */
+
+function SkeletonFilterSection({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="border-b border-gray-100 pb-4 last:border-0">
+      <div className="mb-3 h-3 w-1/3 rounded bg-surface-muted" />
+      <div className="flex flex-col gap-2.5">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="h-4 rounded bg-surface-muted" style={{ width: `${70 - i * 12}%` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonFilterSidebar() {
+  return (
+    <div className="flex animate-pulse flex-col gap-4">
+      <div className="h-4 w-1/2 rounded bg-surface-muted" />
+      <SkeletonFilterSection rows={3} />
+      <SkeletonFilterSection rows={2} />
+      <SkeletonFilterSection rows={4} />
+      <SkeletonFilterSection rows={3} />
     </div>
   );
 }
@@ -46,7 +88,9 @@ function SkeletonCard() {
 function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-gray-100 pb-4 last:border-0">
-      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{title}</p>
+      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-foreground">
+        {title}
+      </p>
       {children}
     </div>
   );
@@ -151,7 +195,7 @@ function SearchResults() {
       prices.push(p.lowestPrice);
       const brand = p.title.split(" ")[0];
       if (brand) brandCount.set(brand, (brandCount.get(brand) ?? 0) + 1);
-      p.offers.forEach((o) => platformSet.add(o.merchantName));
+      p.offers.forEach((o) => platformSet.add(normalizePlatform(o.merchantName)));
     });
 
     const brands = [...brandCount.entries()]
@@ -176,7 +220,7 @@ function SearchResults() {
       if (priceMin !== null && p.lowestPrice < priceMin) return false;
       if (priceMax !== null && p.lowestPrice > priceMax) return false;
       if (selectedBrands.size > 0 && !selectedBrands.has(p.title.split(" ")[0])) return false;
-      if (selectedPlatforms.size > 0 && !p.offers.some((o) => selectedPlatforms.has(o.merchantName))) return false;
+      if (selectedPlatforms.size > 0 && !p.offers.some((o) => selectedPlatforms.has(normalizePlatform(o.merchantName)))) return false;
       if (minRating !== null && (p.rating ?? 0) < minRating) return false;
       return true;
     });
@@ -267,8 +311,7 @@ function SearchResults() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-sm font-bold text-gray-800">
-          <SlidersHorizontal className="h-4 w-4" />
+        <span className="flex items-center gap-2 text-sm font-extrabold text-orange-600">
           Filters
           {activeFilterCount > 0 && (
             <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -279,28 +322,33 @@ function SearchResults() {
         {activeFilterCount > 0 && (
           <button
             onClick={resetFilters}
-            className="flex cursor-pointer items-center gap-1 text-xs text-orange-500 hover:text-orange-600"
+            className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-orange-500 hover:text-orange-600"
           >
             <X className="h-3 w-3" /> Reset
           </button>
         )}
       </div>
 
-      {/* Price Range */}
-      {priceStats.max > priceStats.min && (
-        <FilterSection title="Price Range">
-          <PriceRangeSlider
-            absMin={priceStats.min}
-            absMax={priceStats.max}
-            valueMin={priceMin ?? priceStats.min}
-            valueMax={priceMax ?? priceStats.max}
-            onChange={(lo, hi) => {
-              setPriceMin(lo <= priceStats.min ? null : lo);
-              setPriceMax(hi >= priceStats.max ? null : hi);
-            }}
-          />
-        </FilterSection>
-      )}
+      {/* Sort By */}
+      <FilterSection title="Sort By">
+        <div className="flex flex-col gap-1">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSortBy(opt.value)}
+              className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                sortBy === opt.value
+                  ? "bg-orange-500/10 text-orange-600"
+                  : "text-gray-600 hover:bg-surface-muted"
+              }`}
+            >
+              {opt.label}
+              {sortBy === opt.value && <Check className="h-4 w-4 text-orange-500" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      </FilterSection>
 
       {/* Brands */}
       {brands.length > 0 && (
@@ -329,6 +377,41 @@ function SearchResults() {
         </FilterSection>
       )}
 
+      {/* Price Range */}
+      {priceStats.max > priceStats.min && (
+        <FilterSection title="Price Range">
+          <PriceRangeSlider
+            absMin={priceStats.min}
+            absMax={priceStats.max}
+            valueMin={priceMin ?? priceStats.min}
+            valueMax={priceMax ?? priceStats.max}
+            onChange={(lo, hi) => {
+              setPriceMin(lo <= priceStats.min ? null : lo);
+              setPriceMax(hi >= priceStats.max ? null : hi);
+            }}
+          />
+        </FilterSection>
+      )}
+
+      {/* Customer Ratings */}
+      <FilterSection title="Customer Ratings">
+        <div className="flex flex-col gap-2">
+          {RATING_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="rating"
+                checked={minRating === opt.value}
+                onChange={() => setMinRating(minRating === opt.value ? null : opt.value)}
+                className="accent-orange-500"
+              />
+              <Stars value={opt.value} />
+              <span className="text-xs text-gray-600">{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </FilterSection>
+
       {/* Platforms */}
       {platforms.length > 0 && (
         <FilterSection title="Platforms">
@@ -355,25 +438,6 @@ function SearchResults() {
           )}
         </FilterSection>
       )}
-
-      {/* Customer Ratings */}
-      <FilterSection title="Customer Ratings">
-        <div className="flex flex-col gap-2">
-          {RATING_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="rating"
-                checked={minRating === opt.value}
-                onChange={() => setMinRating(minRating === opt.value ? null : opt.value)}
-                className="accent-orange-500"
-              />
-              <Stars value={opt.value} />
-              <span className="text-xs text-gray-600">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-      </FilterSection>
 
     </div>
   );
@@ -430,7 +494,7 @@ function SearchResults() {
           <div className="absolute bottom-0 left-0 right-0 flex max-h-[90vh] flex-col rounded-t-2xl bg-white shadow-xl">
             {/* Drawer header */}
             <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
-              <span className="text-base font-bold text-gray-800">
+              <span className="text-base font-extrabold text-orange-600">
                 Filters
                 {activeFilterCount > 0 && (
                   <span className="ml-2 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -478,33 +542,13 @@ function SearchResults() {
 
           {/* Desktop filter sidebar */}
           <aside className="hidden w-64 flex-shrink-0 lg:block">
-            <div className="sticky top-20 rounded-2xl border border-border bg-white p-4 shadow-sm">
-              {filterSidebar}
+            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-border bg-white p-4 shadow-sm">
+              {loading ? <SkeletonFilterSidebar /> : filterSidebar}
             </div>
           </aside>
 
           {/* Results column */}
           <div className="min-w-0 flex-1">
-
-            {/* Desktop sort bar */}
-            <div className="mb-5 hidden items-center justify-end gap-3 lg:flex">
-              <span className="text-sm text-gray-500">Sort by:</span>
-              <div className="flex overflow-hidden rounded-lg border border-border bg-white text-sm font-medium shadow-sm">
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setSortBy(opt.value)}
-                    className={`px-4 py-2 transition-colors ${
-                      sortBy === opt.value
-                        ? "cursor-default bg-orange-500 text-white"
-                        : "cursor-pointer text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Loading skeletons */}
             {loading && (

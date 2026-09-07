@@ -114,7 +114,7 @@ Logo and page content now stay aligned at all zoom levels.
 
 ### 11. Logo & Favicon SVG Alignment
 - `public/logo.svg` — added `preserveAspectRatio="xMinYMid meet"` to fix the ~32px transparent left gap that was causing the logo to appear indented vs. body content
-- `public/fav-icon.svg` — replaced with the new BuyJet icon (orange flame/B mark)
+- `public/fav-icon.svg` — replaced with the new BuyDaash icon (orange flame/B mark)
 
 ---
 
@@ -146,5 +146,5 @@ Logo and page content now stay aligned at all zoom levels.
 | `src/services/productService.ts` | Removed enrichment, URL parsing, multi-thumbnail gallery, recent results cache |
 | `src/services/serpApiProductService.ts` | Broader image field detection, review parsing, fallbackImage seeding |
 | `src/types/product.ts` | Added `ReviewItem`, `reviewsList`, `images` to `Product` |
-| `public/fav-icon.svg` | Replaced with new BuyJet icon |
+| `public/fav-icon.svg` | Replaced with new BuyDaash icon |
 | `public/logo.svg` | Added `preserveAspectRatio="xMinYMid meet"` |
